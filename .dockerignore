@@ -1,0 +1,60 @@
+# ============================================================================
+# .dockerignore
+# 排除掉无关文件，减小构建上下文体积，避免敏感信息进入镜像
+# ============================================================================
+
+# Python 编译产物
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 系统垃圾文件
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# 日志和运行时文件（容器内会重建）
+logs/
+*.log
+*.lock
+app_state.json
+oc_history.json
+gateway_metrics.db
+
+# 敏感配置（通过 volume 挂载，不进镜像）
+.env
+.env.*
+!env.example
+
+# 用户凭证目录的内容（目录挂载即可，不打进镜像）
+users/*.json
+
+# Docker 自身文件（避免递归）
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# 文档（可选，留着也不大）
+*.md
+
+# 抓包归档
+archive/
+status_page/
+.ai_memory/
