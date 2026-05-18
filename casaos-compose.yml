@@ -1,0 +1,179 @@
+# ============================================================================
+# CasaOS 一键导入配置文件
+# ----------------------------------------------------------------------------
+# 使用方法（两种方式任选其一）：
+#
+# 方式 A：CasaOS Web 界面导入
+#   1. CasaOS 桌面右上角 -> 应用商店 -> 右上角 "+" -> 安装自定义应用
+#   2. 把本文件内容整段复制粘贴进 docker-compose 输入框
+#   3. 按需修改 environment 段下的密码 / Key
+#   4. 点击安装
+#
+# 方式 B：通过 URL 导入（需先把本文件 push 到 GitHub 仓库根目录）
+#   导入地址：
+#   https://raw.githubusercontent.com/ikun5200/mimi3/master/casaos-compose.yml
+#
+# 前置条件：
+#   镜像 ghcr.io/ikun5200/mimi3:latest 必须已经存在。
+#   若仓库里配置了 .github/workflows/docker-build.yml，push 后会自动构建。
+#   也可以本地构建后推送：
+#     docker build -t ghcr.io/ikun5200/mimi3:latest .
+#     docker push ghcr.io/ikun5200/mimi3:latest
+# ============================================================================
+
+name: mimi3
+
+services:
+  mimi3:
+    image: ghcr.io/ikun5200/mimi3:latest
+    container_name: mimi3
+    restart: unless-stopped
+    network_mode: bridge
+
+    ports:
+      - target: 8000
+        published: "8000"
+        protocol: tcp
+
+    volumes:
+      - type: bind
+        source: /DATA/AppData/mimi3/users
+        target: /app/users
+      - type: bind
+        source: /DATA/AppData/mimi3/logs
+        target: /app/logs
+      - type: bind
+        source: /DATA/AppData/mimi3/data
+        target: /app/data
+      - type: bind
+        source: /DATA/AppData/mimi3/model_mapping.json
+        target: /app/model_mapping.json
+
+    environment:
+      - TZ=Asia/Shanghai
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8000
+      # 客户端调用 /v1/* 的 Bearer Key（强烈建议修改成长随机串）
+      - MIMO_RELAY_OPENAI_KEY=sk-please-change-me-to-a-long-random-string
+      # WebUI 登录账号
+      - MIMO_WEBUI_USERNAME=admin
+      # WebUI 登录密码（必须修改）
+      - MIMO_WEBUI_PASSWORD=please-change-me
+      # 会话签名密钥（建议 32 位以上随机字符）
+      - MIMO_WEBUI_SECRET=please-change-me-to-a-long-random-secret
+      - MIMO_WEBUI_SESSION_TTL_SECONDS=43200
+      - MIMO_WEBUI_COOKIE_SECURE=false
+      # 状态数据路径（指向挂载的数据卷）
+      - MIMO_METRICS_DB_PATH=/app/data/gateway_metrics.db
+      - MIMO_PROCESS_LOCK_PATH=/app/data/mimo2api.lock
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/v1/models"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          memory: 1024M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+# ----------------------------------------------------------------------------
+# CasaOS 应用商店元数据（图标、分类、端口映射、变量说明等）
+# ----------------------------------------------------------------------------
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+  main: mimi3
+  description:
+    en_us: |
+      mimi3 (mimo2api) is an OpenAI / Anthropic compatible API gateway for
+      Xiaomi MIMO models. It exposes /v1/chat/completions, /v1/responses,
+      /v1/audio/speech and /anthropic/v1/messages endpoints, supports
+      multi-account rotation, streaming responses, and ships with a web
+      control panel for monitoring and credential management.
+    zh_cn: |
+      mimi3 (mimo2api) 是一个小米 MIMO 模型的 API 中转网关。
+      兼容 OpenAI / Anthropic 标准接口，支持 /v1/chat/completions、
+      /v1/responses、/v1/audio/speech、/anthropic/v1/messages 等端点。
+      内置多账号轮询、流式响应、Web 控制面板（实时监控 + 凭证管理）。
+  tagline:
+    en_us: OpenAI compatible API gateway for Xiaomi MIMO
+    zh_cn: 小米 MIMO 模型的 OpenAI 兼容 API 网关
+  developer: ikun5200
+  author: ikun5200
+  icon: https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons@master/png/openai.png
+  thumbnail: https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons@master/png/openai.png
+  screenshot_link:
+    - https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons@master/png/openai.png
+  title:
+    en_us: mimi3
+    zh_cn: mimi3
+  category: Developer
+  port_map: "8000"
+  index: /
+  webui_port: 8000
+  scheme: http
+  hostname: ""
+  is_uncontrolled: false
+  project_url: https://github.com/ikun5200/mimi3
+  support: https://github.com/ikun5200/mimi3/issues
+
+  envs:
+    - container: MIMO_RELAY_OPENAI_KEY
+      description:
+        en_us: Bearer key for /v1/* clients (e.g. sk-xxxx). Required for security.
+        zh_cn: 客户端调用 /v1/* 必须带的 Bearer Key（类似 sk-xxxx），务必改成长随机串。
+    - container: MIMO_WEBUI_USERNAME
+      description:
+        en_us: WebUI login username.
+        zh_cn: WebUI 控制面板登录用户名。
+    - container: MIMO_WEBUI_PASSWORD
+      description:
+        en_us: WebUI login password. Must be changed before exposing externally.
+        zh_cn: WebUI 控制面板登录密码，对外暴露前必须修改。
+    - container: MIMO_WEBUI_SECRET
+      description:
+        en_us: Session signing key. At least 32 random characters.
+        zh_cn: WebUI 会话签名密钥，建议 32 位以上随机字符。
+    - container: SERVER_PORT
+      description:
+        en_us: Internal listening port. Keep as 8000 unless you have a reason.
+        zh_cn: 容器内部监听端口，没特殊情况保持 8000。
+    - container: TZ
+      description:
+        en_us: Container timezone.
+        zh_cn: 容器时区，默认 Asia/Shanghai。
+
+  ports:
+    - container: "8000"
+      description:
+        en_us: HTTP API and WebUI port.
+        zh_cn: HTTP API 与 WebUI 端口。
+      protocol: tcp
+
+  volumes:
+    - container: /app/users
+      description:
+        en_us: User credentials JSON files. Persist after container removal.
+        zh_cn: 小米账号凭证 JSON 文件。容器删除后仍保留。
+    - container: /app/logs
+      description:
+        en_us: Application logs.
+        zh_cn: 网关日志目录。
+    - container: /app/data
+      description:
+        en_us: Metrics database and runtime lock files.
+        zh_cn: 度量数据库与运行时锁文件。
+    - container: /app/model_mapping.json
+      description:
+        en_us: Model name alias mapping (editable in WebUI).
+        zh_cn: 模型名称映射配置（可在 WebUI 中编辑）。

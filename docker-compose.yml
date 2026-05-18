@@ -1,0 +1,58 @@
+# ============================================================================
+# mimo2api docker-compose 配置
+# 一键启动：docker compose up -d
+# 一键停止：docker compose down
+# ============================================================================
+
+services:
+  mimo2api:
+    # 用本地 Dockerfile 构建镜像
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mimo2api:latest
+    container_name: mimo2api
+
+    # 退出后自动重启（除非手动 stop）
+    restart: unless-stopped
+
+    # 端口映射：宿主机端口:容器端口
+    # 想换端口只改左边的，比如 "18000:8000"
+    ports:
+      - "8000:8000"
+
+    # 加载 .env 里的环境变量（必须存在，可从 env.example 复制）
+    env_file:
+      - .env
+
+    # 额外的环境变量（覆盖 .env 中的同名变量）
+    environment:
+      - TZ=Asia/Shanghai
+      - MIMO_METRICS_DB_PATH=/app/data/gateway_metrics.db
+      - MIMO_PROCESS_LOCK_PATH=/app/data/mimo2api.lock
+
+    # 持久化卷挂载（容器删除后数据仍保留在宿主机）
+    volumes:
+      # 用户凭证目录：让 WebUI 添加的账号持久保存
+      - ./users:/app/users
+      # 日志目录：方便宿主机直接看日志
+      - ./logs:/app/logs
+      # 状态数据目录：度量数据库、进程锁等
+      - ./data:/app/data
+      # 模型映射配置：保留 WebUI 里改的映射规则
+      - ./model_mapping.json:/app/model_mapping.json
+
+    # 健康检查（Dockerfile 已定义，这里可覆盖）
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/v1/models"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    # 日志驱动配置：避免日志文件无限增长
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
